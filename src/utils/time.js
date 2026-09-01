@@ -1,3 +1,7 @@
+// Loaded for its side effect of pinning process.env.TZ to the clinic timezone,
+// so the comparisons below run on the clinic's clock, not the host's.
+require('../config');
+
 /**
  * Add `minutes` to an HH:mm time string, returning HH:mm.
  */
@@ -16,8 +20,9 @@ const addMinutes = (time, minutes) => {
  * endpoints cannot disagree: any slot reported `available: true` is bookable,
  * and any slot POST /appointments rejects as past is reported unavailable.
  *
- * Comparison uses the server's local clock, so the process must run in the
- * clinic's timezone (set TZ in the environment).
+ * Both sides of the comparison are evaluated in the clinic timezone pinned by
+ * config (CLINIC_TIMEZONE), so the cut-off matches wall-clock time on site
+ * regardless of the host's timezone.
  */
 const isPast = (date, time) => new Date(`${date}T${time}:00`) <= new Date();
 

@@ -5,6 +5,7 @@ const config = require('./config');
 // Start listening immediately (Hostinger requires listen() within 3 seconds)
 app.listen(config.port, () => {
   console.log(`Server running on port ${config.port}`);
+  console.log(`Clinic timezone: ${config.clinicTimezone} (local now: ${new Date().toString()})`);
   console.log(`API docs: http://localhost:${config.port}/api-docs`);
 });
 

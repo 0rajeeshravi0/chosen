@@ -132,9 +132,10 @@ npm start      # Production
 Server starts at `http://localhost:3000` and serves both the API and the React
 UI. Swagger docs at `http://localhost:3000/api-docs`.
 
-> **Timezone:** availability and the "no past appointments" rule compare against
-> the server's local clock. Run the process in the clinic's timezone (e.g.
-> `TZ=Asia/Kolkata npm start`) so slot cut-offs match wall-clock time on site.
+> **Timezone:** availability cut-offs and the "no past appointments" rule compare
+> wall-clock times, so the process pins `process.env.TZ` to `CLINIC_TIMEZONE`
+> (default `Asia/Kolkata`) at startup. Override it for a clinic in another
+> region; the boot log prints the active timezone and local time.
 
 ### 6. Frontend (optional — a built bundle is already committed)
 
@@ -170,6 +171,7 @@ Tests use `mongodb-memory-server` — no external database needed.
 | `JWT_EXPIRES_IN` | Token expiration time | `24h` |
 | `NODE_ENV` | Environment mode | `development` |
 | `DEFAULT_APPOINTMENT_DURATION` | Slot duration in minutes (bonus) | `30` |
+| `CLINIC_TIMEZONE` | IANA timezone the clinic operates in; pins `process.env.TZ` so slot cut-offs use clinic wall-clock time instead of the host's (usually UTC) | `Asia/Kolkata` |
 
 ---
 
