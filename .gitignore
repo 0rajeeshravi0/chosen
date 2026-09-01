@@ -2,3 +2,9 @@ node_modules/
 .env
 coverage/
 *.log
+
+# Frontend workspace: source is tracked, build artifacts are not.
+# The production bundle is built into ../public (which IS tracked) via
+# `npm run build:frontend`.
+frontend/node_modules/
+frontend/dist/

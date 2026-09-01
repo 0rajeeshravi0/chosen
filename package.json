@@ -8,7 +8,10 @@
     "dev": "nodemon src/server.js",
     "seed": "node src/seed/seed.js",
     "test": "jest --forceExit --detectOpenHandles --runInBand",
-    "test:verbose": "jest --forceExit --detectOpenHandles --runInBand --verbose"
+    "test:verbose": "jest --forceExit --detectOpenHandles --runInBand --verbose",
+    "frontend:install": "npm --prefix frontend install",
+    "frontend:dev": "npm --prefix frontend run dev",
+    "build:frontend": "npm --prefix frontend run build && rm -rf public && cp -r frontend/dist public"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

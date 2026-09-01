@@ -5,3 +5,6 @@ npm-debug.log
 .gitignore
 tests
 coverage
+
+# Frontend source is build-time only; the built bundle ships in public/
+frontend

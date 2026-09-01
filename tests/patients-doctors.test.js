@@ -188,6 +188,85 @@ describe('Doctor Availability', () => {
     expect(slot1000.available).toBe(true);
   });
 
+  it('should mark already-passed slots unavailable for today', async () => {
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const dayKey = [
+      'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday',
+    ][now.getDay()];
+
+    // Open the doctor for the entire day so slots exist on both sides of "now"
+    await request(app)
+      .put(`/api/doctors/${doctor._id}/availability`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ workingHours: { [dayKey]: [{ start: '00:00', end: '23:30' }] } });
+
+    const res = await request(app)
+      .get(`/api/doctors/${doctor._id}/availability?date=${today}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(200);
+    const { slots } = res.body.data;
+    expect(slots.length).toBeGreaterThan(0);
+
+    // Invariant: nothing reported available may start at or before now
+    for (const slot of slots.filter((s) => s.available)) {
+      expect(new Date(`${today}T${slot.start}:00`).getTime()).toBeGreaterThan(Date.now());
+    }
+
+    // And every slot that has passed must be reported unavailable
+    const passed = slots.filter(
+      (s) => new Date(`${today}T${s.start}:00`).getTime() <= Date.now()
+    );
+    expect(passed.every((s) => s.available === false)).toBe(true);
+  });
+
+  it('should keep all slots available on a future date', async () => {
+    const monday = getNextWeekday(1);
+
+    const res = await request(app)
+      .get(`/api/doctors/${doctor._id}/availability?date=${monday}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.slots.every((s) => s.available === true)).toBe(true);
+  });
+
+  it('should never report a slot that appointment creation would reject as past', async () => {
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const dayKey = [
+      'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday',
+    ][now.getDay()];
+
+    await request(app)
+      .put(`/api/doctors/${doctor._id}/availability`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ workingHours: { [dayKey]: [{ start: '00:00', end: '23:30' }] } });
+
+    const avail = await request(app)
+      .get(`/api/doctors/${doctor._id}/availability?date=${today}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    const firstFree = avail.body.data.slots.find((s) => s.available);
+    if (!firstFree) return; // no time left today; nothing to assert
+
+    const patient = await createPatient();
+    const res = await request(app)
+      .post('/api/appointments')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        patientId: patient._id.toString(),
+        doctorId: doctor._id.toString(),
+        appointmentDate: today,
+        startTime: firstFree.start,
+        endTime: firstFree.end,
+        reason: 'availability/create consistency',
+      });
+
+    expect(res.status).toBe(201);
+  });
+
   it('should deny non-admin from setting availability', async () => {
     const { token: receptionistToken } = await getToken({ role: 'receptionist' });
 

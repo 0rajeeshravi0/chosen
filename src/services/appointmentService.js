@@ -4,6 +4,7 @@ const Patient = require('../models/Patient');
 const Doctor = require('../models/Doctor');
 const ApiError = require('../utils/ApiError');
 const logAction = require('../utils/auditLog');
+const { isPast } = require('../utils/time');
 
 const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
@@ -56,9 +57,9 @@ const create = async (data, userId) => {
     throw ApiError.badRequest('Start time must be before end time');
   }
 
-  // 4. Not in the past
-  const appointmentDateTime = new Date(`${appointmentDate}T${startTime}:00`);
-  if (appointmentDateTime <= new Date()) {
+  // 4. Not in the past — same helper the availability engine uses, so a slot
+  // reported available can never be rejected here (and vice versa).
+  if (isPast(appointmentDate, startTime)) {
     throw ApiError.badRequest('Cannot schedule appointments in the past');
   }
 

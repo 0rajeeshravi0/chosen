@@ -3,6 +3,7 @@ const Appointment = require('../models/Appointment');
 const ApiError = require('../utils/ApiError');
 const logAction = require('../utils/auditLog');
 const config = require('../config');
+const { addMinutes, isPast } = require('../utils/time');
 
 const create = async (data, userId) => {
   const doctor = await Doctor.create(data);
@@ -94,8 +95,13 @@ const getAvailableSlots = async (doctorId, date) => {
     status: { $ne: 'cancelled' },
   });
 
-  // Mark overlapping slots as unavailable
+  // Mark slots that overlap an existing appointment, or that have already
+  // passed, as unavailable. A slot reported available must be bookable.
   for (const slot of slots) {
+    if (isPast(date, slot.start)) {
+      slot.available = false;
+      continue;
+    }
     for (const apt of appointments) {
       // slot [slotStart, slotEnd) overlaps appointment [aptStart, aptEnd)
       if (slot.start < apt.endTime && slot.end > apt.startTime) {
@@ -108,16 +114,7 @@ const getAvailableSlots = async (doctorId, date) => {
   return { date, doctorId, slots };
 };
 
-/**
- * Add `minutes` to an HH:mm time string, returning HH:mm.
- */
-function addMinutes(time, minutes) {
-  const [h, m] = time.split(':').map(Number);
-  const total = h * 60 + m + minutes;
-  const hh = String(Math.floor(total / 60)).padStart(2, '0');
-  const mm = String(total % 60).padStart(2, '0');
-  return `${hh}:${mm}`;
-}
+
 
 module.exports = {
   create,

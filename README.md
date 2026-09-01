@@ -48,7 +48,13 @@ src/
   routes/          # Express routers with middleware chains
   utils/           # ApiError class, response helpers, audit logger
   seed/            # Database seed script
-public/            # React frontend build (static files)
+public/            # Built React bundle served by Express (tracked, generated)
+frontend/          # React + Vite source for the admin UI
+  src/
+    components/    # Layout (responsive shell), ProtectedRoute
+    context/       # AuthContext (JWT + role helpers)
+    pages/         # Login, Dashboard, Patients, Doctors, Appointments, MyAppointments
+    services/      # Axios instance with token + 401 interceptors
 tests/             # Automated test suites
 ```
 
@@ -123,10 +129,28 @@ npm run dev    # Development (with nodemon hot reload)
 npm start      # Production
 ```
 
-Server starts at `http://localhost:3000`
-Swagger docs at `http://localhost:3000/api-docs`
+Server starts at `http://localhost:3000` and serves both the API and the React
+UI. Swagger docs at `http://localhost:3000/api-docs`.
 
-### 6. Run tests
+> **Timezone:** availability and the "no past appointments" rule compare against
+> the server's local clock. Run the process in the clinic's timezone (e.g.
+> `TZ=Asia/Kolkata npm start`) so slot cut-offs match wall-clock time on site.
+
+### 6. Frontend (optional — a built bundle is already committed)
+
+`public/` contains the production build that Express serves, so the app runs
+without any frontend tooling. To change the UI:
+
+```bash
+npm run frontend:install   # install React/Vite deps into frontend/
+npm run frontend:dev       # Vite dev server on :5173, proxies /api to :3000
+npm run build:frontend     # rebuild frontend/ -> public/
+```
+
+Commit the regenerated `public/` alongside your `frontend/` changes — that
+directory is what the deployed server serves.
+
+### 7. Run tests
 
 ```bash
 npm test
@@ -293,11 +317,19 @@ Multiple time blocks per day are supported (e.g., morning + afternoon with a lun
 2. Get the doctor's working hour blocks for that day.
 3. Generate slots of `DEFAULT_APPOINTMENT_DURATION` minutes (default 30) from each block.
 4. Fetch all **non-cancelled** appointments for that doctor on that date.
-5. Mark each slot as `available: false` if it overlaps with any existing appointment.
+5. Mark a slot `available: false` if it overlaps an existing appointment, **or if
+   its start time has already passed** (relevant when querying today's date).
 
 **Overlap detection:** Slot `[slotStart, slotEnd)` overlaps appointment `[aptStart, aptEnd)` when `slotStart < aptEnd AND slotEnd > aptStart`.
 
 **Cancelled appointments** do not block slots — they are excluded from the overlap query via `status: { $ne: 'cancelled' }`.
+
+**Availability/creation consistency.** Both the availability engine and
+`POST /api/appointments` use the same `isPast()` helper in `src/utils/time.js`.
+This guarantees a one-way invariant that is covered by tests: every slot
+reported `available: true` is actually bookable. Without it, querying today's
+date would advertise morning slots that creation then rejects with
+`400 Cannot schedule appointments in the past` — the API contradicting itself.
 
 ### Appointment Conflict Rules
 
