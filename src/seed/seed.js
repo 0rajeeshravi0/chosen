@@ -136,17 +136,23 @@ const seed = async () => {
     console.log('Created 5 patients');
 
     // --- Appointments ---
-    // Use future dates relative to seeding — pick next Monday
-    const today = new Date();
-    const daysUntilMonday = ((1 - today.getDay()) + 7) % 7 || 7;
-    const nextMonday = new Date(today);
-    nextMonday.setDate(today.getDate() + daysUntilMonday);
-    const dateStr = nextMonday.toISOString().split('T')[0];
+    // Compute the next occurrence of a weekday using UTC throughout, so the
+    // emitted YYYY-MM-DD string always lands on the intended day of week.
+    // (Mixing local getDay()/setDate() with UTC toISOString() shifts the date
+    // by one day for timezones ahead of UTC.)
+    const nextWeekdayUTC = (targetDow) => {
+      const d = new Date();
+      const delta = ((targetDow - d.getUTCDay()) + 7) % 7 || 7;
+      d.setUTCDate(d.getUTCDate() + delta);
+      return d;
+    };
 
-    // Tuesday
-    const nextTuesday = new Date(nextMonday);
-    nextTuesday.setDate(nextMonday.getDate() + 1);
-    const tuesdayStr = nextTuesday.toISOString().split('T')[0];
+    const monday = nextWeekdayUTC(1);
+    const tuesday = new Date(monday);
+    tuesday.setUTCDate(monday.getUTCDate() + 1);
+
+    const dateStr = monday.toISOString().split('T')[0];
+    const tuesdayStr = tuesday.toISOString().split('T')[0];
 
     await Appointment.create([
       // Doctor 1, Monday — occupied slots
