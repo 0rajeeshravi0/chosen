@@ -3,6 +3,7 @@ const app = require('../src/app');
 const Appointment = require('../src/models/Appointment');
 const { connectDB, disconnectDB, clearDB } = require('./setup');
 const { getToken, createDoctor, createPatient, getNextWeekday, createUser } = require('./helpers');
+const { toDateString } = require('../src/utils/time');
 
 beforeAll(connectDB);
 afterAll(disconnectDB);
@@ -121,7 +122,7 @@ describe('Appointment Management', () => {
   it('should reject past appointments', async () => {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
-    const pastDate = yesterday.toISOString().split('T')[0];
+    const pastDate = toDateString(yesterday);
 
     const res = await createAppointment({
       appointmentDate: pastDate,
@@ -277,6 +278,45 @@ describe('Appointment Management', () => {
     expect(res.body.data.doctor.name).toBeDefined();
     expect(res.body.data.doctor.specialisation).toBeDefined();
   });
+
+  it('should expose a top-level id on create, list, and get responses', async () => {
+    const created = await createAppointment();
+    expect(created.body.data.id).toBeDefined();
+    expect(String(created.body.data.id)).toBe(String(created.body.data._id));
+
+    const list = await request(app)
+      .get('/api/appointments')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(list.body.data.length).toBeGreaterThan(0);
+    expect(list.body.data.every((a) => !!a.id)).toBe(true);
+
+    const one = await request(app)
+      .get(`/api/appointments/${created.body.data.id}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(one.status).toBe(200);
+    expect(one.body.data.id).toBeDefined();
+  });
+
+  it('should accept the id from a list response for status updates', async () => {
+    // Guards the bug where a client reading `id` from the list sent
+    // PUT /appointments/undefined because only `_id` was returned.
+    await createAppointment();
+
+    const list = await request(app)
+      .get('/api/appointments')
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    const { id } = list.body.data[0];
+    expect(id).toBeDefined();
+
+    const res = await request(app)
+      .put(`/api/appointments/${id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ status: 'confirmed' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.status).toBe('confirmed');
+  });
 });
 
 describe('Doctor Resource-Level Authorization', () => {
@@ -346,5 +386,42 @@ describe('Doctor Resource-Level Authorization', () => {
       .set('Authorization', `Bearer ${docToken}`);
 
     expect(res.status).toBe(200);
+  });
+
+  it('should let a doctor confirm an own appointment using the id from their list', async () => {
+    // Mirrors the My Appointments screen: doctor reads their own list, then
+    // acts on an entry using the id that list returned.
+    const doctor = await createDoctor();
+    const { token: docToken } = await getToken({ role: 'doctor', doctorId: doctor._id });
+    const { token: adminToken } = await getToken({ role: 'admin' });
+    const patient = await createPatient();
+
+    await request(app)
+      .post('/api/appointments')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        patientId: patient._id.toString(),
+        doctorId: doctor._id.toString(),
+        appointmentDate: getNextWeekday(1),
+        startTime: '09:00',
+        endTime: '09:30',
+        reason: 'Doctor self-service',
+      });
+
+    const list = await request(app)
+      .get('/api/appointments')
+      .set('Authorization', `Bearer ${docToken}`);
+
+    expect(list.body.data.length).toBe(1);
+    const { id } = list.body.data[0];
+    expect(id).toBeDefined();
+
+    const res = await request(app)
+      .put(`/api/appointments/${id}`)
+      .set('Authorization', `Bearer ${docToken}`)
+      .send({ status: 'confirmed' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.status).toBe('confirmed');
   });
 });

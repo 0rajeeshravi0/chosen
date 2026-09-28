@@ -1,9 +1,9 @@
 const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
 
 // Connect directly — this runs standalone
 require('dotenv').config();
 const config = require('../config');
+const { nextWeekday, toDateString } = require('../utils/time');
 
 const User = require('../models/User');
 const Patient = require('../models/Patient');
@@ -136,23 +136,13 @@ const seed = async () => {
     console.log('Created 5 patients');
 
     // --- Appointments ---
-    // Compute the next occurrence of a weekday using UTC throughout, so the
-    // emitted YYYY-MM-DD string always lands on the intended day of week.
-    // (Mixing local getDay()/setDate() with UTC toISOString() shifts the date
-    // by one day for timezones ahead of UTC.)
-    const nextWeekdayUTC = (targetDow) => {
-      const d = new Date();
-      const delta = ((targetDow - d.getUTCDay()) + 7) % 7 || 7;
-      d.setUTCDate(d.getUTCDate() + delta);
-      return d;
-    };
-
-    const monday = nextWeekdayUTC(1);
-    const tuesday = new Date(monday);
-    tuesday.setUTCDate(monday.getUTCDate() + 1);
-
-    const dateStr = monday.toISOString().split('T')[0];
-    const tuesdayStr = tuesday.toISOString().split('T')[0];
+    // Seeded on the next Monday and the Tuesday after it, both days the
+    // doctors work. Dates come from the shared helper so the seed, the
+    // availability engine, and the tests all derive calendar dates the same way.
+    const dateStr = nextWeekday(1);
+    const tuesdayStr = toDateString(
+      new Date(new Date(`${dateStr}T00:00:00`).getTime() + 24 * 60 * 60 * 1000)
+    );
 
     await Appointment.create([
       // Doctor 1, Monday — occupied slots

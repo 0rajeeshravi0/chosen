@@ -3,6 +3,7 @@ const User = require('../src/models/User');
 const Doctor = require('../src/models/Doctor');
 const Patient = require('../src/models/Patient');
 const config = require('../src/config');
+const { nextWeekday, today } = require('../src/utils/time');
 
 const createUser = async (overrides = {}) => {
   const data = {
@@ -58,15 +59,17 @@ const createPatient = async (overrides = {}) => {
 };
 
 /**
- * Get the next occurrence of a given weekday (0=Sun..6=Sat).
- * Returns YYYY-MM-DD string for a future date.
+ * Next occurrence of a weekday (0=Sun..6=Sat) as YYYY-MM-DD.
+ * Delegates to the app's own helper so tests and production agree on how a
+ * calendar date is derived.
  */
-const getNextWeekday = (dayNum) => {
-  const now = new Date();
-  const diff = ((dayNum - now.getDay()) + 7) % 7 || 7;
-  const target = new Date(now);
-  target.setDate(now.getDate() + diff);
-  return target.toISOString().split('T')[0];
-};
+const getNextWeekday = (dayNum) => nextWeekday(dayNum);
 
-module.exports = { createUser, getToken, createDoctor, createPatient, getNextWeekday };
+module.exports = {
+  createUser,
+  getToken,
+  createDoctor,
+  createPatient,
+  getNextWeekday,
+  today,
+};

@@ -1,7 +1,7 @@
 const request = require('supertest');
 const app = require('../src/app');
 const { connectDB, disconnectDB, clearDB } = require('./setup');
-const { getToken, createDoctor, createPatient, getNextWeekday } = require('./helpers');
+const { getToken, createDoctor, createPatient, getNextWeekday, today: todayDate } = require('./helpers');
 
 beforeAll(connectDB);
 afterAll(disconnectDB);
@@ -190,7 +190,7 @@ describe('Doctor Availability', () => {
 
   it('should mark already-passed slots unavailable for today', async () => {
     const now = new Date();
-    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const today = todayDate();
     const dayKey = [
       'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday',
     ][now.getDay()];
@@ -234,7 +234,7 @@ describe('Doctor Availability', () => {
 
   it('should never report a slot that appointment creation would reject as past', async () => {
     const now = new Date();
-    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const today = todayDate();
     const dayKey = [
       'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday',
     ][now.getDay()];

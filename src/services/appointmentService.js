@@ -10,7 +10,12 @@ const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 
 
 function formatAppointment(apt) {
   const obj = apt.toObject ? apt.toObject() : apt;
-  const formatted = { ...obj };
+
+  // Expose `id` alongside `_id`. The nested patient/doctor objects below use
+  // `id`, and the API contract documents `id` at the top level too, so
+  // omitting it here made the shape inconsistent with itself and forced
+  // callers into `appointment.id || appointment._id` guesswork.
+  const formatted = { ...obj, id: obj._id };
 
   if (obj.patient && typeof obj.patient === 'object') {
     formatted.patient = {
